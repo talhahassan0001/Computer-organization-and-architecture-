@@ -1,0 +1,228 @@
+Code:  
+module Add_Sub(a,b,control,y);
+
+input [3:0] a;
+input [3:0] b;
+input control;
+output reg [4:0] y;
+
+always @*
+begin
+    if(control == 0)
+
+        y = a + b;
+    else
+        y = a - b;
+end
+
+endmodule
+
+
+
+
+module testbench1();
+
+reg [3:0] a;
+reg [3:0] b;
+reg control;
+
+wire [4:0] y;
+
+Add_Sub uut(a,b,control,y);
+
+initial
+begin
+
+    control = 0;
+    a = 15;
+    b = 15;
+    #50;
+
+    control = 0;
+    a = 7;
+    b = 2;
+    #50;
+
+    control = 1;
+    a = 7;
+    b = 3;
+    #50;
+
+    control = 1;
+    a = 7;
+    b = 3;
+    #50;
+
+    control = 0;
+    a = 5;
+    b = 6;
+    #50;
+
+    control = 1;
+    a = 8;
+    b = 2;
+    #50;
+
+end
+
+endmodule
+
+
+
+module MUX2x1(A,B,Select,Y);
+
+input A;
+input B;
+input Select;
+output reg Y;
+
+always @*
+begin
+    if(Select == 0)
+        Y = A & B;
+    else
+        Y = A | B;
+end
+
+endmodule
+module testbench2();
+
+reg A;
+reg B;
+reg Select;
+
+wire Y;
+
+MUX2x1 uut(A,B,Select,Y);
+
+initial
+begin
+
+    Select = 0;
+    A = 0;
+    B = 0;
+    #50;
+
+    Select = 0;
+    A = 0;
+    B = 1;
+    #50;
+
+    Select = 0;
+    A = 1;
+    B = 0;
+    #50;
+
+    Select = 0;
+    A = 1;
+    B = 1;
+    #50;
+
+    Select = 1;
+    A = 0;
+    B = 0;
+    #50;
+
+    Select = 1;
+    A = 0;
+    B = 1;
+    #50;
+
+    Select = 1;
+    A = 1;
+    B = 0;
+    #50;
+
+    Select = 1;
+    A = 1;
+    B = 1;
+    #50;
+
+end
+
+endmodule
+
+
+
+
+module Comparator(A,B,equal,greater,less);
+
+input [1:0] A;
+input [1:0] B;
+
+output reg equal;
+output reg greater;
+output reg less;
+
+always @*
+begin
+
+    if(A == B)
+    begin
+        equal = 1;
+        greater = 0;
+        less = 0;
+    end
+
+    else if(A > B)
+    begin
+        equal = 0;
+        greater = 1;
+        less = 0;
+    end
+
+    else
+    begin
+        equal = 0;
+        greater = 0;
+        less = 1;
+    end
+
+end
+
+endmodule
+module testbench3();
+
+reg [1:0] A;
+reg [1:0] B;
+
+wire equal;
+wire greater;
+wire less;
+
+Comparator uut(A,B,equal,greater,less);
+
+initial
+begin
+
+    A = 0;
+    B = 0;
+    #50;
+
+    A = 1;
+    B = 0;
+    #50;
+
+    A = 0;
+    B = 1;
+    #50;
+
+    A = 2;
+    B = 2;
+    #50;
+
+    A = 3;
+    B = 1;
+    #50;
+
+    A = 1;
+    B = 3;
+    #50;
+
+    A = 3;
+    B = 3;
+    #50;
+
+end
+
+endmodule
