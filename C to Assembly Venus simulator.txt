@@ -1,0 +1,117 @@
+
+main:
+    addi s0, x0, 5        # s0 = 5
+    addi s1, x0, 5        # s1 = 5 (equal to s0, so beq WILL branch)
+
+    beq  s0, s1, skip      # conditional: only jumps to 'skip' if s0 == s1
+    addi s2, x0, 100       # this line is SKIPPED if beq branches (condition was true)
+
+skip:
+    addi s3, x0, 200       # this line always runs
+
+    j    end                # unconditional: ALWAYS jumps to 'end', no condition checked
+    addi s4, x0, 300       # this line is NEVER reached — j always skips it
+
+end:
+    addi s5, x0, 400       # program ends here
+
+
+// Part 2
+        addi s0, s0, 4        # s0 = s0 + 4  (adds 4 to whatever s0 currently holds)
+        addi s1, s1, 6        # s1 = s1 + 6  (adds 6 to whatever s1 currently holds)
+        beq  s0, s1, Fin      # if (s0 == s1) jump to Fin; otherwise continue to next line
+True:
+        add  s2, s1, s0       # s2 = s1 + s0   (only reached if beq did NOT branch)
+        j    end               # unconditionally skip over the Fin: block, go straight to end
+Fin:
+        sub  s2, s1, s0       # s2 = s1 - s0   (only reached if beq DID branch)
+end: 
+PART#2
+        addi s0, s0, 4        # s0 = s0 + 4
+        addi s1, s1, 4        # s1 = s1 + 4
+        beq  s0, s1, Fin      # if (s0 == s1) jump to Fin; otherwise continue
+True:
+        add  s2, s1, s0       # s2 = s1 + s0   (only reached if beq did NOT branch)
+        j    end               # skip the Fin: block
+Fin:
+        sub  s2, s1, s0       # s2 = s1 - s0   (only reached if beq DID branch)
+End
+
+
+//Part 3
+# Task 4: if(a==b) c=d-e; else c=d+e;   a=5, b=10, d=4, e=3
+
+main:
+    addi s0, x0, 5         # s0 = a = 5
+    addi s1, x0, 10        # s1 = b = 10
+    addi s2, x0, 4         # s2 = d = 4
+    addi s3, x0, 3         # s3 = e = 3
+
+    bne  s0, s1, ELSE       # if (a != b) skip the "if" body, go to ELSE
+    sub  s4, s2, s3         # (if branch)   c = d - e
+    j    DONE                # skip over the else part
+
+ELSE:
+    add  s4, s2, s3         # (else branch) c = d + e
+
+DONE:
+    # s4 now holds the final value of c
+ 
+//Part 4
+
+main:
+    addi s0, x0, 2          # s0 = 2   (the number we want to shift)
+
+    slli s0, s0, 1          # shift left by 1: s0 = 2 << 1 = 4
+    slli s0, s0, 1          # shift left by 1 again: s0 = 4 << 1 = 8
+
+    # s0 now holds the final shifted value
+ 
+//Part 5
+ # Task 6: for i=1 to 5: increment counter
+
+main:
+    addi s0, x0, 0          # s0 = counter = 0
+    addi s1, x0, 1          # s1 = i = 1 (loop starts at 1)
+
+LOOP:
+    bgt  s1, x0, CONTINUE    # placeholder not needed — see condition check below
+CONTINUE:
+    addi t0, x0, 5           # t0 = 5 (upper loop bound, for comparison)
+    bgt  s1, t0, END         # if (i > 5) exit the loop
+
+    addi s0, s0, 1           # counter = counter + 1
+
+    addi s1, s1, 1           # i = i + 1 (move to next iteration)
+    j    LOOP                 # go back to the top and check condition again
+
+END:
+    # s0 now holds the final value of counter (should be 5)
+//Part 7
+# Task 7: while(i<5) num[i] = i+5;
+
+    .data
+num:    .word 0,0,0,0,0,0,0,0,0,0     # array of 10 words, all initialized to 0
+
+    .text
+main:
+    la   s0, num             # s0 = base address of array num[]
+    addi s1, x0, 0            # s1 = i = 0
+
+WHILE:
+    addi t0, x0, 5            # t0 = 5 (loop condition bound)
+    bge  s1, t0, END          # if (i >= 5), exit the loop
+
+    addi t1, s1, 5             # t1 = i + 5   (value to store)
+
+    slli t2, s1, 2             # t2 = i * 4   (byte offset — each word is 4 bytes)
+    add  t3, s0, t2             # t3 = address of num[i]  (base + offset)
+    sw   t1, 0(t3)              # num[i] = i + 5   (store word into memory)
+
+    addi s1, s1, 1              # i++
+    j    WHILE                   # repeat the loop check
+
+END:
+  
+
+
