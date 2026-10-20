@@ -1,0 +1,208 @@
+module program_counter (
+    input clk,
+    input reset,
+    input [3:0] addr,
+    output reg [3:0] pc_out
+);
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            pc_out <= 4'b0000;
+        else
+            pc_out <= addr;
+    end
+endmodule
+
+module instruction_memory (
+    input [3:0] addr,
+    output [7:0] instruction
+);
+    reg [7:0] memory [0:15];
+    integer i;
+
+    initial begin
+        for (i = 0; i < 16; i = i + 1)
+            memory[i] = 8'b00000000;
+        memory[0] = 8'b00000001;
+        memory[1] = 8'b00000010;
+        memory[2] = 8'b00000011;
+        memory[3] = 8'b00000100;
+    end
+
+    assign instruction = memory[addr];
+endmodule
+
+`timescale 1ns/1ps
+module tb_program_counter;
+    reg clk;
+    reg reset;
+    reg [3:0] addr;
+    wire [3:0] pc_out;
+    wire [7:0] instruction;
+
+    program_counter pc (.clk(clk), .reset(reset), .addr(addr), .pc_out(pc_out));
+    instruction_memory im (.addr(pc_out), .instruction(instruction));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("t=%0t clk=%b reset=%b addr=%d pc_out=%d instruction=%b",
+                  $time, clk, reset, addr, pc_out, instruction);
+        clk = 0; reset = 0; addr = 0;
+
+        reset = 1;
+        #10 reset = 0;
+
+        #10 addr = 1;
+        #10 addr = 2;
+        #10 addr = 3;
+        #10 addr = 0;
+        #20 $stop;
+    end
+endmodule
+
+
+
+Task#2
+module program_counter (
+    input clk,
+    input reset,
+    output reg [7:0] pc_out
+);
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            pc_out <= 8'd0;
+        else
+            pc_out <= pc_out + 8'd1;
+    end
+endmodule
+
+module instruction_memory (
+    input [7:0] addr,
+    output [7:0] instruction
+);
+    reg [7:0] memory [0:15];
+    integer i;
+
+    initial begin
+        for (i = 0; i < 16; i = i + 1)
+            memory[i] = 8'b00000000;
+        memory[0] = 8'b00000001;
+        memory[1] = 8'b00000010;
+        memory[2] = 8'b00000011;
+        memory[3] = 8'b00000100;
+    end
+
+    
+    assign instruction = (addr <= 8'd15) ? memory[addr[3:0]] : 8'b00000000;
+endmodule
+
+`timescale 1ns/1ps
+module tb_pc_auto;
+    reg clk;
+    reg reset;
+    wire [7:0] pc_out;
+    wire [7:0] instruction;
+
+    program_counter pc (.clk(clk), .reset(reset), .pc_out(pc_out));
+    instruction_memory im (.addr(pc_out), .instruction(instruction));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("t=%0t reset=%b pc_out=%d instruction=%b",
+                  $time, reset, pc_out, instruction);
+        clk = 0; reset = 1;
+        #12 reset = 0;
+        #200 $stop;   
+    end
+endmodule
+
+Task#3
+module pc32 (
+    input clk,
+    input reset,
+    output reg [31:0] pc_out
+);
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            pc_out <= 32'h00000000;
+        else
+            pc_out <= pc_out + 32'd4;
+    end
+endmodule
+
+`timescale 1ns/1ps
+module tb_pc32;
+    reg clk;
+    reg reset;
+    wire [31:0] pc_out;
+    wire [3:0] addr4;
+    wire [7:0] instruction;
+
+    pc32 pc (.clk(clk), .reset(reset), .pc_out(pc_out));
+
+    assign addr4 = pc_out[3:0];   
+
+    instruction_memory im (.addr(addr4), .instruction(instruction));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("t=%0t reset=%b pc_out=0x%h addr4=%d instruction=%b",
+                  $time, reset, pc_out, addr4, instruction);
+        clk = 0; reset = 1;
+        #12 reset = 0;
+        #100 $stop;
+    end
+endmodule
+
+
+
+task#4
+
+module im32 (
+    input [31:0] addr,
+    output [31:0] instruction
+);
+    reg [31:0] memory [0:15];
+    integer i;
+
+    initial begin
+        for (i = 0; i < 16; i = i + 1)
+            memory[i] = 32'h00000013;   
+
+        memory[0] = 32'h00500093;   
+        memory[1] = 32'h00A00113;   
+        memory[2] = 32'h002081B3;   
+        memory[3] = 32'h00302023;   
+        memory[4] = 32'h00002203;  
+    end
+
+    
+    assign instruction = (addr < 32'd64) ? memory[addr[5:2]] : 32'h00000000;
+endmodule
+
+
+`timescale 1ns/1ps
+module tb_riscv_fetch;
+    reg clk;
+    reg reset;
+    wire [31:0] pc_out;
+    wire [31:0] instruction;
+
+    pc32 pc (.clk(clk), .reset(reset), .pc_out(pc_out));
+    im32 im (.addr(pc_out), .instruction(instruction));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("t=%0t reset=%b PC=0x%h instruction=0x%h",
+                  $time, reset, pc_out, instruction);
+        clk = 0; reset = 1;
+        #12 reset = 0;
+        #120 $stop;
+    end
+endmodule
+
+
+
