@@ -1,0 +1,273 @@
+module full_adder_gate(input a, b, cin, output sum, cout);
+    wire x1, a1, a2;
+    xor g1(x1, a, b);
+    xor g2(sum, x1, cin);
+    and g3(a1, a, b);
+    and g4(a2, x1, cin);
+    or  g5(cout, a1, a2);
+endmodule
+
+
+
+
+
+
+
+module alu1_behavioral(input a, b, carry_in, b_inv, input [1:0] sel,
+                       output reg result, carry_out);
+    reg bb;
+    always @(*) begin
+        bb = b ^ b_inv;
+        carry_out = 1'b0;
+        case (sel)
+            2'b00: result = a & bb;
+            2'b01: result = a | bb;
+            2'b10: {carry_out, result} = a + bb + carry_in;
+            default: result = 1'b0;
+        endcase
+    end
+endmodule
+
+module task01tb;
+    reg a, b, cin, binv; reg [1:0] sel;
+    wire rg, cg, rd, cd, rb, cb;
+    alu1_gate       G(a,b,cin,binv,sel,rg,cg);
+    alu1_dataflow   D(a,b,cin,binv,sel,rd,cd);
+    alu1_behavioral B(a,b,cin,binv,sel,rb,cb);
+    integer i, errors = 0; reg exp_r, exp_c; reg [1:0] t; reg bb;
+    initial begin
+        $display("sel op   b_inv cin A B | Result Cout | gate dataflow behav");
+        for (i = 0; i < 48; i = i + 1) begin
+            sel  = i / 16;                    
+            {binv, cin, a, b} = i % 16;
+            #1;
+            bb = b ^ binv;
+            case (sel)
+              0: begin exp_r = a & bb; exp_c = 0; end
+              1: begin exp_r = a | bb; exp_c = 0; end
+              default: begin t = a + bb + cin; exp_r = t[0]; exp_c = t[1]; end
+            endcase
+           
+            if (rg!==exp_r || rd!==exp_r || rb!==exp_r) errors = errors + 1;
+            if (sel==2 && (cg!==exp_c || cd!==exp_c || cb!==exp_c)) errors = errors + 1;
+            $display(" %b  %s   %b     %b   %b %b |   %b      %b   |  %b%b    %b%b     %b%b",
+                sel, (sel==0)?"AND":(sel==1)?"OR ":"ADD", binv, cin, a, b, rg, (sel==2)?cg:1'b0,
+                rg,(sel==2)?cg:1'b0, rd,(sel==2)?cd:1'b0, rb,(sel==2)?cb:1'b0);
+        end
+        $display("Task1: %0d mismatches across 48 input combinations", errors);
+        $finish;
+    end
+endmodule
+
+
+
+TASK#2
+
+
+module alu1_slt(input a, b, cin, b_inv, less, input [1:0] sel,
+                output result, cout, add_out);
+    wire bb = b ^ b_inv;
+    assign add_out = a ^ bb ^ cin;
+    assign cout    = (a & bb) | ((a ^ bb) & cin);
+    assign result  = (sel == 2'b00) ? (a & bb) :
+                     (sel == 2'b01) ? (a | bb) :
+                     (sel == 2'b10) ? add_out  : less;
+endmodule
+
+module alu4bit(input [3:0] a, b, input b_inv, input [1:0] op,
+               output [3:0] result, output CF, SF, ZF, OF);
+    wire [4:0] c;  wire [3:0] s;
+    wire set;
+    assign c[0] = b_inv;                 
+   
+    assign set  = s[3] ^ OF_raw;
+    wire OF_raw = c[3] ^ c[4];
+    alu1_slt u0(a[0], b[0], c[0], b_inv, set,  op, result[0], c[1], s[0]);
+    alu1_slt u1(a[1], b[1], c[1], b_inv, 1'b0, op, result[1], c[2], s[1]);
+    alu1_slt u2(a[2], b[2], c[2], b_inv, 1'b0, op, result[2], c[3], s[2]);
+    alu1_slt u3(a[3], b[3], c[3], b_inv, 1'b0, op, result[3], c[4], s[3]);
+    wire arith = op[1];                  // ADD/SUB or SLT use the adder
+    assign CF = (op == 2'b10) ? (c[4] ^ b_inv) : 1'b0;  // SUB: borrow = ~carry
+    assign OF = arith & OF_raw;
+    assign SF = result[3];
+    assign ZF = ~|result;
+endmodule
+`timescale 1ns/1ps
+module task2_tb;
+    reg [3:0] a, b; reg b_inv; reg [1:0] op;
+    wire [3:0] r; wire CF, SF, ZF, OF;
+    alu4bit dut(a,b,b_inv,op,r,CF,SF,ZF,OF);
+    integer i, j, k, errors = 0, total = 0;
+    reg [3:0] er; reg ecf, eof; integer sa, sb; reg [4:0] w;
+    task show(input [8*4-1:0] name);
+        $display("%s  A=%b (%0d) B=%b (%0d) -> R=%b (%0d)  CF=%b SF=%b ZF=%b OF=%b",
+                 name, a, $signed(a), b, $signed(b), r, $signed(r), CF, SF, ZF, OF);
+    endtask
+    initial begin
+        $display("---- Directed examples ----");
+        a=4'd5;  b=4'd3;  b_inv=0; op=2'b10; #1 show("ADD ");
+        a=4'd7;  b=4'd1;  b_inv=0; op=2'b10; #1 show("ADD ");   // signed overflow
+        a=4'd15; b=4'd1;  b_inv=0; op=2'b10; #1 show("ADD ");   // carry + zero
+        a=4'd5;  b=4'd3;  b_inv=1; op=2'b10; #1 show("SUB ");
+        a=4'd3;  b=4'd5;  b_inv=1; op=2'b10; #1 show("SUB ");   // borrow, negative
+        a=4'd4;  b=4'd4;  b_inv=1; op=2'b10; #1 show("SUB ");   // zero
+        a=4'd8;  b=4'd1;  b_inv=1; op=2'b10; #1 show("SUB ");   // -8 - 1 overflow
+        a=4'b1100; b=4'b1010; b_inv=0; op=2'b00; #1 show("AND ");
+        a=4'b1100; b=4'b1010; b_inv=0; op=2'b01; #1 show("OR  ");
+        a=4'd2;  b=4'd6;  b_inv=1; op=2'b11; #1 show("SLT ");   // 2<6 -> 1
+        a=4'd6;  b=4'd2;  b_inv=1; op=2'b11; #1 show("SLT ");   // 6<2 -> 0
+        a=4'hF;  b=4'd1;  b_inv=1; op=2'b11; #1 show("SLT ");   // -1<1 -> 1
+        a=4'h7;  b=4'h8;  b_inv=1; op=2'b11; #1 show("SLT ");   // 7 < -8 -> 0 (overflow case)
+        // exhaustive check against reference model
+        for (i=0;i<16;i=i+1) for (j=0;j<16;j=j+1) for (k=0;k<5;k=k+1) begin
+            a=i; b=j; sa=$signed(a); sb=$signed(b);
+            case (k)
+              0: begin op=2'b10; b_inv=0; w=a+b;          er=w[3:0]; ecf=w[4];  eof=((sa+sb)>7)||((sa+sb)<-8); end
+              1: begin op=2'b10; b_inv=1; w={1'b0,a}-{1'b0,b}; er=w[3:0]; ecf=(a<b); eof=((sa-sb)>7)||((sa-sb)<-8); end
+              2: begin op=2'b00; b_inv=0; er=a&b; ecf=0; eof=0; end
+              3: begin op=2'b01; b_inv=0; er=a|b; ecf=0; eof=0; end
+              4: begin op=2'b11; b_inv=1; er=(sa<sb)?4'd1:4'd0; ecf=0; eof=((sa-sb)>7)||((sa-sb)<-8); end
+            endcase
+            #1; total=total+1;
+            if (r!==er || CF!==ecf || OF!==eof || SF!==er[3] || ZF!==(er==0)) begin
+                errors=errors+1;
+                $display("MISMATCH k=%0d a=%0d b=%0d r=%b exp=%b CF=%b/%b OF=%b/%b",k,a,b,r,er,CF,ecf,OF,eof);
+            end
+        end
+        $display("Task2: %0d tests (exhaustive), %0d mismatches", total, errors);
+        $finish;
+    end
+endmodule
+
+
+TASK #3
+
+module alu_param #(parameter N = 8) (
+    input  wire [N-1:0] a, b,
+    input  wire [2:0]   ctrl,
+    output reg  [N-1:0] result,
+    output reg          carry_out,
+    output wire         zero
+);
+    always @(*) begin
+        carry_out = 1'b0;
+        case (ctrl)
+            3'b000: {carry_out, result} = {1'b0, a} + {1'b0, b};
+            3'b001: {carry_out, result} = {1'b0, a} - {1'b0, b};  
+            3'b010: result = a & b;
+            3'b011: result = a | b;
+            3'b100: result = ~a;
+            3'b101: result = a ^ b;
+            default: result = {N{1'b0}};
+        endcase
+    end
+    assign zero = (result == {N{1'b0}});
+endmodule
+`timescale 1ns/1ps
+module task3_tb;
+   
+    reg [7:0]  a8, b8;   reg [2:0] c;  wire [7:0]  r8;  wire co8, z8;
+    reg [15:0] a16, b16;               wire [15:0] r16; wire co16, z16;
+    alu_param #(.N(8))  u8 (.a(a8),  .b(b8),  .ctrl(c), .result(r8),  .carry_out(co8),  .zero(z8));
+    alu_param #(.N(16)) u16(.a(a16), .b(b16), .ctrl(c), .result(r16), .carry_out(co16), .zero(z16));
+    integer i, errors = 0; reg [15:0] e;
+    task show8(input [8*4-1:0] n);
+        $display("N=8  %s a=%h b=%h -> result=%h carry/borrow=%b zero=%b", n, a8, b8, r8, co8, z8);
+    endtask
+    task show16(input [8*4-1:0] n);
+        $display("N=16 %s a=%h b=%h -> result=%h carry/borrow=%b zero=%b", n, a16, b16, r16, co16, z16);
+    endtask
+    initial begin
+        a8=8'h3C; b8=8'h0F; a16=16'h1234; b16=16'h4321;
+        c=0; #1 show8("ADD "); show16("ADD ");
+        c=1; #1 show8("SUB "); show16("SUB ");
+        c=2; #1 show8("AND "); show16("AND ");
+        c=3; #1 show8("OR  "); show16("OR  ");
+        c=4; #1 show8("NOT "); show16("NOT ");
+        c=5; #1 show8("XOR "); show16("XOR ");
+        a8=8'hFF; b8=8'h01; a16=16'hFFFF; b16=16'h0001; c=0; #1 show8("ADD "); show16("ADD ");
+        a8=8'h05; b8=8'h05; a16=16'h0005; b16=16'h0005; c=1; #1 show8("SUB "); show16("SUB ");
+       
+        for (i=0;i<2000;i=i+1) begin
+            a8=$random; b8=$random; a16=$random; b16=$random; c=$urandom%6; #1;
+            case (c)
+              0: e=a8+b8; 1: e=a8-b8; 2: e=a8&b8; 3: e=a8|b8; 4: e=~a8; 5: e=a8^b8;
+            endcase
+            if (r8!==e[7:0]) errors=errors+1;
+            case (c)
+              0: e=a16+b16; 1: e=a16-b16; 2: e=a16&b16; 3: e=a16|b16; 4: e=~a16; 5: e=a16^b16;
+            endcase
+            if (r16!==e) errors=errors+1;
+        end
+        $display("Task3: 2000 random vectors x 2 widths, %0d mismatches", errors);
+        $finish;
+    end
+endmodule
+
+
+
+Task 4
+
+module alu32(
+    input  wire [31:0] a, b,
+    input  wire [3:0]  alu_op,
+    output reg  [31:0] result,
+    output wire        zero
+);
+    wire [4:0] shamt = b[4:0];
+    always @(*) begin
+        case (alu_op)
+            4'b0000: result = a + b;                             
+            4'b0001: result = a – b;
+            4'b0010: result = a & b;                              
+            4'b0011: result = a | b;                              
+            4'b0100: result = a ^ b;                              
+            4'b0101: result = ($signed(a) < $signed(b)) ? 32'd1 : 32'd0;  
+            4'b0110: result = (a < b) ? 32'd1 : 32'd0;            
+            4'b0111: result = a << shamt;                         
+            4'b1000: result = a >> shamt;                         
+            4'b1001: result = $signed(a) >>> shamt;               
+            default: result = 32'd0;
+        endcase
+    end
+    assign zero = (result == 32'd0);
+endmodule
+`timescale 1ns/1ps
+module task4_tb;
+    reg [31:0] a, b; reg [3:0] op; wire [31:0] r; wire z;
+    alu32 dut(a,b,op,r,z);
+    integer i, errors=0; reg [31:0] e; reg [4:0] sh;
+    task show(input [8*5-1:0] n);
+        $display("%s a=%h b=%h -> result=%h zero=%b", n, a, b, r, z);
+    endtask
+    initial begin
+        a=32'd100; b=32'd25;
+        op=0; #1 show("ADD  "); op=1; #1 show("SUB  ");
+        op=2; #1 show("AND  "); op=3; #1 show("OR   "); op=4; #1 show("XOR  ");
+        op=5; #1 show("SLT  "); op=6; #1 show("SLTU "); 
+        a=32'hF0F0_0001; b=32'd4;
+        op=7; #1 show("SLL  "); op=8; #1 show("SRL  "); op=9; #1 show("SRA  ");
+        a=32'hFFFF_FFFF; b=32'd1; op=5; #1 show("SLT  ");   // -1 < 1 signed -> 1
+        op=6; #1 show("SLTU ");                             // 0xFFFFFFFF < 1 unsigned -> 0
+        a=32'h8000_0000; b=32'd1; op=0; #1 show("ADD  ");
+        a=32'd7; b=32'd7; op=1; #1 show("SUB  ");           // zero flag
+        a=32'hFFFF_FFFF; b=32'd1; op=0; #1 show("ADD  ");   // wraps to 0
+        a=32'h1234; b=32'd5; op=4'd15; #1 show("INVLD");
+        for (i=0;i<20000;i=i+1) begin
+            a=$random; b=$random; op=$urandom%10;
+            if ($urandom%8==0) b=$urandom%40;   // exercise shifts
+            sh=b[4:0]; #1;
+            case (op)
+              0: e=a+b; 1: e=a-b; 2: e=a&b; 3: e=a|b; 4: e=a^b;
+              5: e=($signed(a)<$signed(b)); 6: e=(a<b);
+              7: e=a<<sh; 8: e=a>>sh; 9: e=$signed(a)>>>sh;
+            endcase
+            if (r!==e || z!==(e==0)) begin errors=errors+1; if (errors<5) $display("MISMATCH op=%0d a=%h b=%h r=%h e=%h",op,a,b,r,e); end
+        end
+        $display("Task4: 20000 random vectors, %0d mismatches", errors);
+        $finish;
+    end
+endmodule
+
+
+
